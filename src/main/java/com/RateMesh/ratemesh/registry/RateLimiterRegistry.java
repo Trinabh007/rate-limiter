@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import com.RateMesh.ratemesh.SlidingWindowLog.SlidingWindowLog;
+import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
+import com.RateMesh.ratemesh.SlidingWindowLog.RedisSlidingWindowLog;
 import com.RateMesh.ratemesh.TokenBucket.RedisTokenBucket;
 import com.RateMesh.ratemesh.config.ClientConfig;
 
@@ -32,7 +33,7 @@ import com.RateMesh.ratemesh.config.ClientConfig;
 public class RateLimiterRegistry {
     
     private final ConcurrentHashMap<String,ClientConfig> clientConfigMap;
-    private final ConcurrentHashMap<String,Object> rateLimiterMap;
+    private final ConcurrentHashMap<String,RateLimiter> rateLimiterMap;
     private final RedisTemplate<String, String> redisTemplate;
     public RateLimiterRegistry(RedisTemplate<String, String> redisTemplate) {
         clientConfigMap = new ConcurrentHashMap<>();
@@ -54,9 +55,14 @@ public class RateLimiterRegistry {
         throw new RuntimeException("Failed to load token_bucket.lua", e);
         }
     }
-        else if(algoString.equals("SLIDING_WINDOW_LOG")) {
-            rateLimiterMap.put(clientId,new SlidingWindowLog(clientConfig.getMaxRequests(), clientConfig.getWindowSizeInMillis())); 
-        }
+        else if (algoString.equals("SLIDING_WINDOW_LOG")) {
+        rateLimiterMap.put(clientId, new RedisSlidingWindowLog(
+            redisTemplate,
+            clientId,
+            clientConfig.getMaxRequests(),
+            clientConfig.getWindowSizeInMillis()
+        ));
+    }
     }
     public ClientConfig getClientConfig(String clientId) {
         return clientConfigMap.get(clientId);

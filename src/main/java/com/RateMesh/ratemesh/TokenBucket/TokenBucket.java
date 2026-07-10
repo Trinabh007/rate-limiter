@@ -14,6 +14,10 @@ public class TokenBucket implements RateLimiter {
         this.tokens = capacity; // Bucket starts full
         this.lastRefillTime = System.currentTimeMillis();
     }
+    @Override
+    public boolean allowRequest(String clientId) {
+    return tryAcquire();
+    }
     public synchronized boolean tryAcquire() {
         // 1. Refill tokens
         refill();

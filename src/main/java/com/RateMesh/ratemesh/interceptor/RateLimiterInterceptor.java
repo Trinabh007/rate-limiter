@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
-import com.RateMesh.ratemesh.SlidingWindowLog.SlidingWindowLog;
 import com.RateMesh.ratemesh.config.ClientConfig;
 import com.RateMesh.ratemesh.registry.RateLimiterRegistry;
 
@@ -31,13 +30,8 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
             response.getWriter().write("Client not registered");
             return false;
         }
-        Object rateLimiter = rateLimiterRegistry.getRateLimiter(clientId);
-        boolean allowed = false;
-        if (clientConfig.getAlgorithm().equals("TOKEN_BUCKET")) {
-            allowed = ((RateLimiter)rateLimiter).tryAcquire();
-        } else if (clientConfig.getAlgorithm().equals("SLIDING_WINDOW_LOG")) {
-            allowed = ((SlidingWindowLog)rateLimiter).tryAcquire(clientId);
-        }
+        RateLimiter rateLimiter = (RateLimiter) rateLimiterRegistry.getRateLimiter(clientId);
+        boolean allowed = rateLimiter.allowRequest(clientId);
         if(!allowed) {
             response.setStatus(429);
             response.setHeader("Retry-After", String.valueOf(clientConfig.getWindowSizeInMillis() / 1000));

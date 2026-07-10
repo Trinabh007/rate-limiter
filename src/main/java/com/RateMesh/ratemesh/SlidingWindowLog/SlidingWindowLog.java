@@ -4,7 +4,9 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class SlidingWindowLog {
+import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
+
+public class SlidingWindowLog implements RateLimiter {
 
     private final int capacity;
     private final long windowSizeInMillis;
@@ -16,7 +18,7 @@ public class SlidingWindowLog {
         this.clientWindows = new ConcurrentHashMap<>();
     }
 
-    public synchronized boolean tryAcquire(String clientId) {
+    public synchronized boolean allowRequest(String clientId) {
         long currentTime = System.currentTimeMillis();
         long windowStart = currentTime - windowSizeInMillis;
 

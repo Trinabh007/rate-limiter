@@ -26,6 +26,9 @@ public class RedisTokenBucket implements RateLimiter {
         this.script = RedisScript.of(scriptText, Long.class);
     }
     @Override
+    public boolean allowRequest(String clientId) {
+        return tryAcquire();
+    }
     public boolean tryAcquire() {
         String tokensKey = "ratemesh:" + clientId + ":tokens";
         String refillKey = "ratemesh:" + clientId + ":lastRefill";
