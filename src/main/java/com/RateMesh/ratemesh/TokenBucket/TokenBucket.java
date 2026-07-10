@@ -1,5 +1,8 @@
 package com.RateMesh.ratemesh.TokenBucket;
-public class TokenBucket {
+
+import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
+
+public class TokenBucket implements RateLimiter {
     
     private final long capacity; // Max bucket capacity
     private final double rate; // Tokens per second

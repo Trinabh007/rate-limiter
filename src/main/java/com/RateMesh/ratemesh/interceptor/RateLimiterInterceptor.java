@@ -3,8 +3,8 @@ package com.RateMesh.ratemesh.interceptor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
 import com.RateMesh.ratemesh.SlidingWindowLog.SlidingWindowLog;
-import com.RateMesh.ratemesh.TokenBucket.TokenBucket;
 import com.RateMesh.ratemesh.config.ClientConfig;
 import com.RateMesh.ratemesh.registry.RateLimiterRegistry;
 
@@ -34,7 +34,7 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
         Object rateLimiter = rateLimiterRegistry.getRateLimiter(clientId);
         boolean allowed = false;
         if (clientConfig.getAlgorithm().equals("TOKEN_BUCKET")) {
-            allowed = ((TokenBucket)rateLimiter).tryAcquire();
+            allowed = ((RateLimiter)rateLimiter).tryAcquire();
         } else if (clientConfig.getAlgorithm().equals("SLIDING_WINDOW_LOG")) {
             allowed = ((SlidingWindowLog)rateLimiter).tryAcquire(clientId);
         }
