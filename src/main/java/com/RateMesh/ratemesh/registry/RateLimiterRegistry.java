@@ -42,7 +42,10 @@ public class RateLimiterRegistry {
         this.rateLimiterMap = new ConcurrentHashMap<>();
         this.redisTemplate = redisTemplate;
     }
-
+    private void publishInvalidation(String clientId) {
+    redisTemplate.convertAndSend("config-invalidated", AppConstants.INSTANCE_ID + ":" + clientId);
+    log.info("Published cache invalidation for client '{}'", clientId);
+    }
     public void registerClientConfig(String clientId, ClientConfig clientConfig) {
         // 1. Write to local maps
         clientConfigMap.put(clientId, clientConfig);
@@ -58,7 +61,7 @@ public class RateLimiterRegistry {
         redisTemplate.expire(CONFIG_KEY_PREFIX + clientId, Duration.ofDays(7));
         log.info("Registered client '{}' with algorithm {} — written to local cache and Redis",
                 clientId, clientConfig.getAlgorithm());
-        redisTemplate.convertAndSend("config-invalidated", AppConstants.INSTANCE_ID + ":" + clientId);
+        publishInvalidation(clientId);
     }
     private static final ClientConfig UNKNOWN_CONFIG = new ClientConfig(
     "__UNKNOWN__", 0, 0L, 0.0
@@ -186,5 +189,19 @@ public class RateLimiterRegistry {
     rateLimiterMap.remove(clientId);
     sentinelTimestamps.remove(clientId);
     log.info("Evicted local cache for client '{}'", clientId);
+    }
+    public boolean deregisterClientConfig(String clientId) {
+    if (!clientConfigMap.containsKey(clientId) && 
+        Boolean.FALSE.equals(redisTemplate.hasKey(CONFIG_KEY_PREFIX + clientId))) {
+        log.warn("Attempted to deregister unknown client '{}'", clientId);
+        return false;
+    }
+    clientConfigMap.remove(clientId);
+    rateLimiterMap.remove(clientId);
+    sentinelTimestamps.remove(clientId);
+    redisTemplate.delete(CONFIG_KEY_PREFIX + clientId);
+    log.info("Deregistered client '{}': removed from local cache and Redis", clientId);
+    publishInvalidation(clientId);
+    return true;
 }
 }
