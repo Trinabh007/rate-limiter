@@ -12,9 +12,9 @@
 package com.RateMesh.ratemesh.registry;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -55,7 +55,7 @@ public class RateLimiterRegistry {
                 "windowSizeInMillis", String.valueOf(clientConfig.getWindowSizeInMillis()),
                 "refillRate", String.valueOf(clientConfig.getRefillRate())
         ));
-
+        redisTemplate.expire(CONFIG_KEY_PREFIX + clientId, Duration.ofDays(7));
         log.info("Registered client '{}' with algorithm {} — written to local cache and Redis",
                 clientId, clientConfig.getAlgorithm());
         redisTemplate.convertAndSend("config-invalidated", AppConstants.INSTANCE_ID + ":" + clientId);
