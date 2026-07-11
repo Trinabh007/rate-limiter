@@ -68,33 +68,31 @@ public class RateLimiterRegistry {
     );
     public ClientConfig getClientConfig(String clientId) {
         ClientConfig local = clientConfigMap.get(clientId);
-        if(local == UNKNOWN_CONFIG){
+    
+        if (local == UNKNOWN_CONFIG) {
             Long storedAt = sentinelTimestamps.get(clientId);
         if (storedAt != null && System.currentTimeMillis() - storedAt > SENTINEL_TTL_MS) {
-            // expired — evict, fall through to re-check Redis
             clientConfigMap.remove(clientId);
             sentinelTimestamps.remove(clientId);
         } else {
-            // still valid — return null immediately, no Redis call
             return null;
         }
         }
+    
         if (local != null) return local;
-        
-        // Miss — try to hydrate from Redis
-        clientConfigMap.computeIfAbsent(clientId, id -> {
-    hydrateFromRedis(id);
-    ClientConfig hydrated = clientConfigMap.get(id);
-    return hydrated != null ? hydrated : UNKNOWN_CONFIG;
-    });
 
-    ClientConfig result = clientConfigMap.get(clientId);
-    if (result == UNKNOWN_CONFIG) {
-    sentinelTimestamps.put(clientId, System.currentTimeMillis());
-    return null;
-    }
+        // network call OUTSIDE the lock
+        hydrateFromRedis(clientId);
+
+        // lambda is trivial — just sentinel placement if hydration found nothing
+        clientConfigMap.computeIfAbsent(clientId, id -> UNKNOWN_CONFIG);
+        ClientConfig result = clientConfigMap.get(clientId);
+        if (result == UNKNOWN_CONFIG) {
+            sentinelTimestamps.put(clientId, System.currentTimeMillis());
+            return null;
+        }
     return result;
-}
+    }
     private static final RateLimiter UNKNOWN_CLIENT = new RateLimiter() {
     @Override
     public boolean allowRequest(String clientId) {
@@ -103,10 +101,10 @@ public class RateLimiterRegistry {
     };
 
     public RateLimiter getRateLimiter(String clientId) {
-    RateLimiter current = rateLimiterMap.get(clientId);
+        RateLimiter current = rateLimiterMap.get(clientId);
 
-    // sentinel present — check if expired
-    if (current == UNKNOWN_CLIENT) {
+        // sentinel present — check if expired
+        if (current == UNKNOWN_CLIENT) {
         Long storedAt = sentinelTimestamps.get(clientId);
         if (storedAt != null && System.currentTimeMillis() - storedAt > SENTINEL_TTL_MS) {
             // expired — evict, fall through to re-check Redis
@@ -118,23 +116,22 @@ public class RateLimiterRegistry {
         }
     }
 
-    // key absent (or just evicted) — hydrate from Redis
-    if (current == null || !rateLimiterMap.containsKey(clientId)) {
-        rateLimiterMap.computeIfAbsent(clientId, id -> {
-            hydrateFromRedis(id);
-            RateLimiter hydrated = rateLimiterMap.get(id);
-            return hydrated != null ? hydrated : UNKNOWN_CLIENT;
-        });
-        // store timestamp if sentinel was just placed
-        RateLimiter after = rateLimiterMap.get(clientId);
-        if (after == UNKNOWN_CLIENT) {
-            sentinelTimestamps.put(clientId, System.currentTimeMillis());
-        }
+        // key absent (or just evicted) — hydrate from Redis
+        if (current == null || !rateLimiterMap.containsKey(clientId)) {
+        // network call OUTSIDE the lock
+            hydrateFromRedis(clientId);
+    
+            // now put only if still absent — lambda is trivial, no I/O
+            rateLimiterMap.computeIfAbsent(clientId, id -> UNKNOWN_CLIENT);
+    
+             RateLimiter after = rateLimiterMap.get(clientId);
+            if (after == UNKNOWN_CLIENT) {
+                sentinelTimestamps.put(clientId, System.currentTimeMillis());
+            }   
+        }   
+        RateLimiter result = rateLimiterMap.get(clientId);
+        return result == UNKNOWN_CLIENT ? null : result;
     }
-
-    RateLimiter result = rateLimiterMap.get(clientId);
-    return result == UNKNOWN_CLIENT ? null : result;
-}
 
     // Fetches client config from Redis and populates both local maps.
     // No-op if the key doesn't exist in Redis.
