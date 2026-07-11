@@ -30,7 +30,7 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
             response.getWriter().write("Client not registered");
             return false;
         }
-        RateLimiter rateLimiter = (RateLimiter) rateLimiterRegistry.getRateLimiter(clientId);
+        RateLimiter rateLimiter = rateLimiterRegistry.getRateLimiter(clientId);
         boolean allowed = rateLimiter.allowRequest(clientId);
         if(!allowed) {
             response.setStatus(429);

@@ -24,6 +24,7 @@ import com.RateMesh.ratemesh.RateLimiter.RateLimiter;
 import com.RateMesh.ratemesh.SlidingWindowLog.RedisSlidingWindowLog;
 import com.RateMesh.ratemesh.TokenBucket.RedisTokenBucket;
 import com.RateMesh.ratemesh.config.ClientConfig;
+import com.RateMesh.ratemesh.constants.AppConstants;
 
 @Component
 public class RateLimiterRegistry {
@@ -57,6 +58,7 @@ public class RateLimiterRegistry {
 
         log.info("Registered client '{}' with algorithm {} — written to local cache and Redis",
                 clientId, clientConfig.getAlgorithm());
+        redisTemplate.convertAndSend("config-invalidated", AppConstants.INSTANCE_ID + ":" + clientId);
     }
     private static final ClientConfig UNKNOWN_CONFIG = new ClientConfig(
     "__UNKNOWN__", 0, 0L, 0.0
@@ -179,4 +181,10 @@ public class RateLimiterRegistry {
             throw new IllegalArgumentException("Unknown algorithm: " + algorithm);
         }
     }
+    public void evictLocalCache(String clientId) {
+    clientConfigMap.remove(clientId);
+    rateLimiterMap.remove(clientId);
+    sentinelTimestamps.remove(clientId);
+    log.info("Evicted local cache for client '{}'", clientId);
+}
 }
