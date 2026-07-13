@@ -1,0 +1,8 @@
+target/
+.git/
+.github/
+.mvn/repository/
+*.md
+.gitignore
+.gitattributes
+nginx/
